@@ -1,0 +1,72 @@
+https://blog.csdn.net/weiyudang11/article/details/52684333
+
+# 地理空间数据聚类
+%matplotlib  inline
+import numpy as np,pandas as pd,matplotlib.pyplot as plt
+from sklearn.cluster import DBSCAN
+from  geopy.distance import great_circle
+from shapely.geometry  import MultiPoint,Polygon
+from geopy.geocoders  import Nominatim
+from geopy.point  import Point
+import geopandas as gpd
+from sklearn.preprocessing  import StandardScaler,minmax_scale
+
+
+## 1.数据加载 数据量为1亿条，是一个三维数据：（经度，纬度，创建时间）
+path=r"GPS.csv"
+df=pd.read_csv(path,index_col=0,usecols=[1,2,3,4],parse_dates=[3])
+df=df[(df.latitude!=0) & (df.longitude >73.3)].drop_duplicates()
+
+df_sort=df.groupby(by=df.index).count().sort_values(by="longitude",ascending=False)
+dfIndex=df_sort[df_sort.longitude>30].index
+dftest=df.loc[dfIndex]
+
+
+经纬度解析出城市
+def parse_city(latlng):
+    try:
+        locations=geolocator.reverse(Point(latlng),timeout=10)
+        loc=locations.raw[u'address']
+        if  u'state_district' in loc:
+            city=loc[ u'state_district'].split('/')[0]
+        else :
+            city =loc[u'county'].split('/')[0]   # 直辖市
+    except Exception as e:
+        print e
+        city=None
+    try:
+        state= loc[u'state']
+    except Exception as e:
+        print e
+        state=None
+    return city,state
+
+
+def parse_state(latlng):
+    try:
+        locations=geolocator.reverse(Point(latlng),timeout=10)
+        loc=locations.raw
+        state= loc[u'address'][u'state']
+    except Exception as e:
+        print e
+        state=None
+    return state
+
+
+geolocator = Nominatim()
+latlngs=df.ix[:,['longitude','latitude']].values
+
+df['city']=map(parse_city,latlngs)
+
+df['state']=map(parse_state,latlngs)
+
+
+3.聚类分析
+coords=dftest.as_matrix(columns=['longitude','latitude'])
+kms_per_radian = 6371.0088
+epsilon = 10/ kms_per_radian
+db = DBSCAN(eps=epsilon, min_samples=80, algorithm='ball_tree', metric='haversine').fit(np.radians(coords))
+cluster_labels = db.labels_
+num_clusters = len(set(cluster_labels))
+clusters = pd.Series([coords[cluster_labels == n] for n in range(num_clusters)])
+print('Number of clusters: {}'.format(num_clusters))
