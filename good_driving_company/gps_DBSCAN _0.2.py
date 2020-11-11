@@ -154,7 +154,6 @@ def plot_map(map_type, point_data):
 
     # 地图中心
     map_center = [all_data['lat'].mean(), all_data['long'].mean()]
-
     map_plot = folium.Map(location=map_center,
                           zoom_start=5,
                           tiles=map_tiles,
@@ -175,15 +174,12 @@ def plot_map(map_type, point_data):
         if 'over_speed' in behavior:
             # 创建异常驾驶行为——超速行为的FeatureGroup
             temp_plot = folium.FeatureGroup(name='超速行为分布', control=True)
-
         if 'over_acc' in behavior:
             # 创建异常驾驶行为——急加速行为的FeatureGroup
             temp_plot = folium.FeatureGroup(name='急加速行为分布', control=True)
-
         if 'over_dac' in behavior:
             # 创建异常驾驶行为——急减速行为的FeatureGroup
             temp_plot = folium.FeatureGroup(name='急减速异常行为分布', control=True)
-
         for row in behavior_data.iterrows():
             icon_kw = dict(prefix='fa',
                            color=behavior_color,
@@ -233,7 +229,6 @@ def plot_map(map_type, point_data):
 
     # 打开map的LayerControl
     folium.LayerControl().add_to(map_plot)
-
     return map_plot
 
 
@@ -251,7 +246,6 @@ def main():
                            # names=col_names,
                            low_memory=False
                            )
-
     abnormal_data = pd.read_csv(abnormal_data_path,
                                 header=0,
                                 index_col=False,
