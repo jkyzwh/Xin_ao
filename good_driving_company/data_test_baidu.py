@@ -21,7 +21,8 @@ import json
 # from urllib.parse import urlencode
 
 import folium
-import pyecharts
+from pyecharts.charts import BMap
+from pyecharts import options as opts
 import webbrowser
 import statsmodels.api as sm
 
@@ -593,14 +594,14 @@ def plot_Bd_map(point_data):
     # 地图中心
     map_center = [data['lon'].mean(), data['lat'].mean()]
     # 初始化百度地图
-    bd_map = pyecharts.charts.BMap(init_opts=pyecharts.options.InitOpts(width="2000px", height="1400px"))\
+    bd_map = BMap(init_opts=opts.InitOpts(width="2000px", height="1400px"))\
         .add_schema(
         baidu_ak=KEY,
         center=map_center,
         zoom=8,
         is_roam=True,
         map_style=None)\
-        .set_global_opts(title_opts=pyecharts.options.TitleOpts(title="新奥危险货物运输高风险路段位置图"))
+        .set_global_opts(title_opts=opts.TitleOpts(title="新奥危险货物运输高风险路段位置图"))
     # 增加异常行为地理可视化标点
 
     color = ['red', 'green', 'blue', 'yellow', '#35226A', '#2D1C58', '#241747', '#1B1135']
@@ -613,20 +614,21 @@ def plot_Bd_map(point_data):
         i = i + 1
 
         map_data = []
-        for i in range(len(behavior_data)):
-            geo_coord = [behavior]
-            coord = [behavior_data['lon'].iloc[i], behavior_data['lat'].iloc[i], 1]
-            geo_coord.append(coord)
-            map_data.append(geo_coord)
+        for j in range(len(behavior_data)):
+            geo_coord = [behavior_data['lon'].iloc[j], behavior_data['lat'].iloc[j]]
+            coord = [geo_coord, 1]
+            # geo_coord.append(coord)
+            # map_data.append(geo_coord)
+            map_data.append(coord)
 
         bd_map = bd_map.add(
-            type_="Scatter",
             series_name=behavior,
+            type_="scatter",
             data_pair=map_data,
             symbol_size=12,
-            # effect_opts=pyecharts.options.EffectOpts(),
-            # label_opts=pyecharts.options.LabelOpts(formatter="{b}", position="right", is_show=False),
-            itemstyle_opts=pyecharts.options.ItemStyleOpts(color="purple"),
+            # effect_opts=opts.EffectOpts(),
+            # label_opts=opts.LabelOpts(formatter="{b}", position="right", is_show=False),
+            itemstyle_opts=opts.ItemStyleOpts(color="purple"),
         )
 
 
@@ -636,9 +638,9 @@ def plot_Bd_map(point_data):
                 series_name=behavior,
                 data_pair=[behavior, row['lon'], row['lat']],
                 symbol_size=12,
-                effect_opts=pyecharts.options.EffectOpts(),
-                label_opts=pyecharts.options.LabelOpts(formatter="{b}", position="right", is_show=False),
-                itemstyle_opts=pyecharts.options.ItemStyleOpts(color=behavior_color),
+                effect_opts=opts.EffectOpts(),
+                label_opts=opts.LabelOpts(formatter="{b}", position="right", is_show=False),
+                itemstyle_opts=opts.ItemStyleOpts(color=behavior_color),
             )
 
     bd_map = bd_map.render("bmap_high_riak_road_sections.html")
