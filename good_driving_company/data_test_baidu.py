@@ -10,18 +10,14 @@ Created on Tue 2020/09/25
 import pandas as pd
 import os
 import platform
-import xlrd
 
 import requests
 import datetime
 import time
 import math
-# import scipy.stats as stats
 import json
-# from urllib.parse import urlencode
 
-import folium
-from pyecharts.charts import BMap
+from pyecharts.charts import BMap as baidu_map
 from pyecharts import options as opts
 import webbrowser
 import statsmodels.api as sm
@@ -30,15 +26,12 @@ import pretty_errors
 
 pretty_errors.activate()
 
-# --------------------------------定义全局变量 高德开发者key与数字签名 ------------------------
+# --------------------------------定义全局变量 百度开发者key与数字签名 ------------------------
 
 global KEY, EARTH_REDIUS
 KEY = 'iHDcbVaHkRo6xz149QBiqlrn2FAbwX6b'
 EARTH_REDIUS = 6378.137  # 地球半径
-# KEY = '771f529bb4d20b88fc847b8f1954b737'  # 吴楠提供的key
-# SIG = 'b24f7386fd53fefd198f623dadb08598'
 requests.DEFAULT_RETRIES = 5
-
 
 # --------------------------------------------操作百度地图--------------------------
 
@@ -251,8 +244,6 @@ def get_data_file_list(DATA_PATH):
 
     return data_files
 
-
-#  读取数据集中的xlsx文件
 
 # 导入试验数据，标准化列名
 def get_data(file_path):
@@ -519,73 +510,6 @@ def ove_acc_check(import_data, confidence=0.95):
     return result
 
 
-# 调用folium包绘制点图，不同类型风险行为采用不同的标记
-def plot_map(map_type, point_data):
-    if map_type == 'GPS':
-        all_data = point_data[['lat_GPS', 'long_GPS', 'behavior']]
-        all_data.columns = ['lat', 'lon', 'behavior']
-
-        # 地图类型，google 卫星图
-        map_tiles = 'https://mt.google.com/vt/lyrs=s&x={x}&y={y}&z={z}'
-        # 地图类型，google 地图
-        # map_tiles = 'https://mt.google.com/vt/lyrs=h&x={x}&y={y}&z={z}'
-
-    if map_type == 'Gaode':
-        # all_data = point_data[['lat_GaoDe', 'long_GaoDe']]
-        all_data = point_data[['lat_GaoDe', 'long_GaoDe', 'behavior']]
-        all_data.columns = ['lat', 'lon', 'behavior']
-
-        # 地图类型，高德街道图
-        map_tiles = 'http://webrd02.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}'
-        # 地图类型，高德卫星图
-        # map_tiles = 'http://webst02.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}'
-
-    # 地图中心
-    map_center = [all_data['lat'].mean(), all_data['lon'].mean()]
-
-    map_plot = folium.Map(location=map_center,
-                          zoom_start=16,
-                          tiles=map_tiles,
-                          attr='default'
-                          )
-
-    color = ['red', 'green', 'blue', 'yellow',
-             '#F0EDF9', '#E2DBF3', '#D3CAEE', '#B7A6E2', '#A895DD', '#9A83D7', '#8C71D1', '#7D60CC', '#6F4EC6',
-             '#613DC1', '#5938B0', '#50329E', '#472D8D', '#3E277B', '#35226A', '#2D1C58', '#241747', '#1B1135',
-             '#F0EDF9', '#E2DBF3', '#D3CAEE', '#C5B8E8', '#B7A6E2', '#A895DD', '#9A83D7', '#8C71D1', '#7D60CC',
-             '#6F4EC6', '#613DC1', '#5938B0', '#50329E', '#472D8D', '#3E277B', '#35226A', '#2D1C58', '#241747',
-             '#1B1135']  # 37种
-
-    # for name, row in all_data.iterrows():
-    #     if int(row['classlabel']) == -1:
-    #         folium.Circle(radius=20, location=[row["lat"], row["lon"]], popup="离群--停车点:{0}".format(name),
-    #                       color='black', fill=True, fill_color='black').add_to(map)
-    #     else:
-    #         i = int(row['classlabel'])
-    #         folium.Circle(radius=20, location=[row["lat"], row["lon"]], popup="{0}类--停车点:{1}".format(i, name),
-    #                       color=color[i], fill=True, fill_color=color[i]).add_to(map)
-
-    behavior_list = all_data.drop_duplicates(['behavior'])['behavior'].copy()  # 剔除重复的数据文件路径
-    i = 0
-    for behavior in behavior_list:
-        behavior_data = all_data[all_data['behavior'] == behavior]
-        behavior_color = color[i]
-        i = i + 1
-
-        for name, row in behavior_data.iterrows():
-            folium.CircleMarker(radius=20,
-                                location=[row['lat'], row['lon']],
-                                # popup="离群--停车点:{0}".format(name),
-                                color=behavior_color,
-                                fill=True,
-                                fill_color=behavior_color
-                                ).add_to(map_plot)
-    # 增加随着鼠标显示经纬度
-    map_plot.add_child(folium.LatLngPopup())
-
-    return map_plot
-
-
 # 调用百度地图绘制点图，不同类型风险行为采用不同的标记
 def plot_Bd_map(point_data, path):
     point_data = point_data[point_data['remarks'] != 'no_result']
@@ -595,7 +519,7 @@ def plot_Bd_map(point_data, path):
     # 地图中心
     map_center = [data['lon'].mean(), data['lat'].mean()]
     # 初始化百度地图
-    bd_map = BMap(init_opts=opts.InitOpts(width="1920px", height="1080px"))
+    bd_map = baidu_map(init_opts=opts.InitOpts(width="1920px", height="1080px"))
     bd_map.add_schema(baidu_ak=KEY,
                       center=map_center,
                       zoom=8, is_roam=True,
@@ -686,7 +610,7 @@ abnormal = abnormal[abnormal['speed'] > 10]
 
 # 补全百度坐标
 abnormal = Bd_map_decode(data=abnormal,
-                         radius=300)  # 以GPS坐标周围300米为检索范围
+                         radius=300,)  # 以GPS坐标周围300米为检索范围
 
 # 轨迹可视化, 定义保存轨迹可视化html的文件名
 save_file_name = "bmap_high_riak_road_sections.html"

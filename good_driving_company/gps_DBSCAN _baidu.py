@@ -20,6 +20,9 @@ from sklearn import metrics
 import folium
 import webbrowser
 
+from pyecharts.charts import BMap 
+from pyecharts import options as opts
+
 # import statsmodels.api as sm
 # import xlrd
 
@@ -32,13 +35,11 @@ import webbrowser
 import pretty_errors
 pretty_errors.activate()
 
-# --------------------------------定义全局变量 高德开发者key与数字签名 ------------------------
+# --------------------------------定义全局变量 百度开发者key与数字签名 ------------------------
 
 global KEY, EARTH_REDIUS
-KEY = '1d7a5c90ef3d9cd09995aec793404657'
+KEY = 'iHDcbVaHkRo6xz149QBiqlrn2FAbwX6b'
 EARTH_REDIUS = 6378.137  # 地球半径
-# KEY = '771f529bb4d20b88fc847b8f1954b737'  # 吴楠提供的key
-# SIG = 'b24f7386fd53fefd198f623dadb08598'
 requests.DEFAULT_RETRIES = 5
 
 
