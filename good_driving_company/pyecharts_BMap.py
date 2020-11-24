@@ -14,8 +14,8 @@ from pyecharts.charts import BMap
 from pyecharts import options as opts
 from pyecharts.faker import Faker
 
-[list(z) for z in zip(Faker.provinces, Faker.values())]
-zip(Faker.guangdong_city, Faker.values())
+# [list(z) for z in zip(Faker.provinces, Faker.values())]
+# zip(Faker.guangdong_city, Faker.values())
 
 
 """
