@@ -339,7 +339,7 @@ def gps_dataAdd(data):
 
 
 # 利用百度 web API 逆编码经纬度数据，提取道路名称信息以及修正位置GPS坐标
-def Bd_map_decode(data, radius):
+def Bd_map_decode(data):
     sample = data.copy()
     sample['address'] = ''
     sample['province'] = ''
@@ -510,7 +510,7 @@ def ove_acc_check(import_data, confidence=0.95):
     return result
 
 
-# 调用百度地图绘制点图，不同类型风险行为采用不同的标记
+# 调用百度地图绘制点图，不同类型风险行为采用不同颜色的标记
 def plot_Bd_map(point_data, path):
     point_data = point_data[point_data['remarks'] != 'no_result']
     data = point_data[['lat_BaiDu', 'long_BaiDu', 'behavior']].copy()
@@ -609,8 +609,7 @@ abnormal = over_check[over_check['behavior'] != 'normal']
 abnormal = abnormal[abnormal['speed'] > 10]
 
 # 补全百度坐标
-abnormal = Bd_map_decode(data=abnormal,
-                         radius=300,)  # 以GPS坐标周围300米为检索范围
+abnormal = Bd_map_decode(data=abnormal)
 
 # 轨迹可视化, 定义保存轨迹可视化html的文件名
 save_file_name = "bmap_high_riak_road_sections.html"
