@@ -220,35 +220,35 @@ def plot_map(point_data, path):
              'gray84', 'gray85', 'gray86', 'gray87', 'gray88', 'gray89', 'gray90', 'gray91', 'gray92',
              'gray93', 'gray94', 'gray95', 'gray97', 'gray98', 'gray99']
 
-    behavior_list = data.drop_duplicates(['behavior'])['behavior'].copy()  # 剔除重复的数据文件路径
-
-    for behavior in behavior_list:
-        behavior_data = data[data['behavior'] == behavior]
-        behavior_color = random.choice(color)  # 从color列表中随机抽取一个颜色
-
-        map_data = []
-        # 利用BMap.add_coordinate 将坐标值赋值给一个地点名称，并增加近BMap对象地理信息中
-        for j in range(len(behavior_data)):
-            name = behavior + str(j)
-            longitude = behavior_data['lon'].iloc[j]
-            latitude = behavior_data['lat'].iloc[j]
-
-            bd_map.add_coordinate(name=name,
-                                  longitude=longitude,
-                                  latitude=latitude
-                                  )
-            map_data.append((name, 1))
-
-        # 将地点增加到百度地图
-        bd_map = bd_map.add(
-            series_name=behavior,
-            type_="scatter",
-            data_pair=map_data,
-            symbol_size=20,
-            effect_opts=opts.EffectOpts(),
-            label_opts=opts.LabelOpts(formatter="{b}", position="left", is_show=False),
-            itemstyle_opts=opts.ItemStyleOpts(color=behavior_color),
-        )
+    # behavior_list = data.drop_duplicates(['behavior'])['behavior'].copy()  # 剔除重复的数据文件路径
+    #
+    # for behavior in behavior_list:
+    #     behavior_data = data[data['behavior'] == behavior]
+    #     behavior_color = random.choice(color)  # 从color列表中随机抽取一个颜色
+    #
+    #     map_data = []
+    #     # 利用BMap.add_coordinate 将坐标值赋值给一个地点名称，并增加近BMap对象地理信息中
+    #     for j in range(len(behavior_data)):
+    #         name = behavior + str(j)
+    #         longitude = behavior_data['lon'].iloc[j]
+    #         latitude = behavior_data['lat'].iloc[j]
+    #
+    #         bd_map.add_coordinate(name=name,
+    #                               longitude=longitude,
+    #                               latitude=latitude
+    #                               )
+    #         map_data.append((name, 1))
+    #
+    #     # 将地点增加到百度地图
+    #     bd_map = bd_map.add(
+    #         series_name=behavior,
+    #         type_="scatter",
+    #         data_pair=map_data,
+    #         symbol_size=20,
+    #         effect_opts=opts.EffectOpts(),
+    #         label_opts=opts.LabelOpts(formatter="{b}", position="left", is_show=False),
+    #         itemstyle_opts=opts.ItemStyleOpts(color=behavior_color),
+    #     )
 
     # 显示聚类分析的结果
     label_list = data.drop_duplicates(['label'])['label'].copy()
@@ -267,20 +267,23 @@ def plot_map(point_data, path):
                                   longitude=label_data['lon'].mean(),
                                   latitude=label_data['lat'].mean()
                                   )
-            map_data.append((name, 1))
+            map_data.append((name, len(label_data)))
 
             # 将地点增加到百度地图
             bd_map = bd_map.add(
                 series_name=name,
                 type_="scatter",
                 data_pair=map_data,
-                symbol_size=50,
+                # symbol_size=50,
+                blur_size=500,
                 effect_opts=opts.EffectOpts(),
                 label_opts=opts.LabelOpts(formatter="{b}", position="right", is_show=False),
                 itemstyle_opts=opts.ItemStyleOpts(color='orange red'),
             )
 
     # 将绘图结果输出至网页文件
+    bd_map = bd_map.add_control_panel(maptype_control_opts=opts.BMapTypeControlOpts(position=1),
+                                      )
     bd_map = bd_map.render(path)
     webbrowser.open(path)
     return bd_map
