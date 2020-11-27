@@ -22,6 +22,7 @@ from sklearn import metrics
 
 from pyecharts.charts import BMap
 from pyecharts import options as opts
+from pyecharts.globals import GeoType
 import webbrowser
 
 import pretty_errors
@@ -121,28 +122,8 @@ def dbscan_silhouette(data):
     return result
 
 
-# 中文转换
-def parse_zhch(s):
-    return str(str(s).encode('ascii', 'xmlcharrefreplace'))[2:-1]
-
-
-# 调用百度地图绘制点图，不同类型风险行为采用颜色不同的标记
-def plot_map(point_data, path):
-    point_data = point_data[point_data['remarks'] != 'no_result']
-    data = point_data[['lat_BaiDu', 'long_BaiDu', 'behavior', 'label']].copy()
-    data.columns = ['lat', 'lon', 'behavior', 'label']
-
-    # 地图中心
-    map_center = [data['lon'].mean(), data['lat'].mean()]
-    # 初始化百度地图
-    bd_map = BMap(init_opts=opts.InitOpts(width="1920px", height="1080px"))
-    bd_map.add_schema(baidu_ak=KEY,
-                      center=map_center,
-                      zoom=8, is_roam=True,
-                      map_style=None,
-                      )
-    bd_map.set_global_opts(title_opts=opts.TitleOpts(title="新奥危险货物运输高风险路段聚类分析图"))
-
+# 随机确定颜色
+def color_choice():
     color = ['snow', 'ghost white', 'white smoke', 'gainsboro', 'floral white', 'old lace',
              'linen', 'antique white', 'papaya whip', 'blanched almond', 'bisque', 'peach puff',
              'navajo white', 'lemon chiffon', 'mint cream', 'azure', 'alice blue', 'lavender',
@@ -220,38 +201,63 @@ def plot_map(point_data, path):
              'gray84', 'gray85', 'gray86', 'gray87', 'gray88', 'gray89', 'gray90', 'gray91', 'gray92',
              'gray93', 'gray94', 'gray95', 'gray97', 'gray98', 'gray99']
 
-    # behavior_list = data.drop_duplicates(['behavior'])['behavior'].copy()  # 剔除重复的数据文件路径
-    #
-    # for behavior in behavior_list:
-    #     behavior_data = data[data['behavior'] == behavior]
-    #     behavior_color = random.choice(color)  # 从color列表中随机抽取一个颜色
-    #
-    #     map_data = []
-    #     # 利用BMap.add_coordinate 将坐标值赋值给一个地点名称，并增加近BMap对象地理信息中
-    #     for j in range(len(behavior_data)):
-    #         name = behavior + str(j)
-    #         longitude = behavior_data['lon'].iloc[j]
-    #         latitude = behavior_data['lat'].iloc[j]
-    #
-    #         bd_map.add_coordinate(name=name,
-    #                               longitude=longitude,
-    #                               latitude=latitude
-    #                               )
-    #         map_data.append((name, 1))
-    #
-    #     # 将地点增加到百度地图
-    #     bd_map = bd_map.add(
-    #         series_name=behavior,
-    #         type_="scatter",
-    #         data_pair=map_data,
-    #         symbol_size=20,
-    #         effect_opts=opts.EffectOpts(),
-    #         label_opts=opts.LabelOpts(formatter="{b}", position="left", is_show=False),
-    #         itemstyle_opts=opts.ItemStyleOpts(color=behavior_color),
-    #     )
+    return random.choice(color)
+
+
+# 调用百度地图绘制点图，不同类型风险行为采用颜色不同的标记
+def plot_map(point_data, path):
+    point_data = point_data[point_data['remarks'] != 'no_result']
+    data = point_data[['lat_BaiDu', 'long_BaiDu', 'behavior', 'label']].copy()
+    data.columns = ['lat', 'lon', 'behavior', 'label']
+
+    # 地图中心
+    map_center = [data['lon'].mean(), data['lat'].mean()]
+    # 初始化百度地图
+    bd_map = BMap(init_opts=opts.InitOpts(width="1920px", height="1080px"))
+    bd_map.add_schema(baidu_ak=KEY,
+                      center=map_center,
+                      zoom=8, is_roam=True,
+                      map_style=None,
+                      )
+
+    color = ['red', 'green', 'blue', 'yellow', 'gold', 'cyan', 'magenta', 'purple']
+
+    behavior_list = data.drop_duplicates(['behavior'])['behavior'].copy()  # 剔除重复的数据文件路径
+    i = 0
+    for behavior in behavior_list:
+        behavior_data = data[data['behavior'] == behavior]
+        # behavior_color = color_choice()  # 从color列表中随机抽取一个颜色
+        behavior_color = color[i]
+        i = i + 1
+
+        map_data = []
+        # 利用BMap.add_coordinate 将坐标值赋值给一个地点名称，并增加近BMap对象地理信息中
+        for j in range(len(behavior_data)):
+            name = behavior + str(j)
+            longitude = behavior_data['lon'].iloc[j]
+            latitude = behavior_data['lat'].iloc[j]
+
+            bd_map.add_coordinate(name=name,
+                                  longitude=longitude,
+                                  latitude=latitude
+                                  )
+            map_data.append((name, 1))
+
+        # 将地点增加到百度地图
+        bd_map = bd_map.add(
+            series_name=behavior,
+            type_="scatter",
+            data_pair=map_data,
+            symbol_size=20,
+            effect_opts=opts.EffectOpts(),
+            label_opts=opts.LabelOpts(formatter="{b}", position="left", is_show=False),
+            itemstyle_opts=opts.ItemStyleOpts(color=behavior_color),
+        )
 
     # 显示聚类分析的结果
     label_list = data.drop_duplicates(['label'])['label'].copy()
+
+    map_data = []
 
     for label in label_list:
         if label == -1:
@@ -260,7 +266,7 @@ def plot_map(point_data, path):
             label_data = data[data['label'] == label]
 
             # 将聚类点命名增加至地图地名空间
-            map_data = []
+
             name = '高风险路段_' + str(label)
 
             bd_map.add_coordinate(name=name,
@@ -269,28 +275,39 @@ def plot_map(point_data, path):
                                   )
             map_data.append((name, len(label_data)))
 
-            # 将地点增加到百度地图
-            bd_map = bd_map.add(
-                series_name=name,
-                type_="scatter",
-                data_pair=map_data,
-                # symbol_size=50,
-                blur_size=500,
-                effect_opts=opts.EffectOpts(),
-                label_opts=opts.LabelOpts(formatter="{b}", position="right", is_show=False),
-                itemstyle_opts=opts.ItemStyleOpts(color='orange red'),
-            )
+    # 将地点增加到百度地图
+    bd_map = bd_map.add(
+        series_name='高风险行为频发路段',
+        type_="scatter",
+        data_pair=map_data,
+        symbol_size=50,
+        # blur_size=500,
+        is_selected=True,  # 是否选中图例
+        effect_opts=opts.EffectOpts(),
+        label_opts=opts.LabelOpts(formatter="{b}", position="right", is_show=False),
+        itemstyle_opts=opts.ItemStyleOpts(color='rgba(138,43,226, 0.8)'),
+    )
 
     # 将绘图结果输出至网页文件
     bd_map = bd_map.add_control_panel(maptype_control_opts=opts.BMapTypeControlOpts(position=1),
                                       )
+
+    # 设置图例
+    bd_map = bd_map.set_global_opts(legend_opts=opts.LegendOpts(is_show=True,
+                                                                item_height=50,
+                                                                ),
+                                    title_opts=opts.TitleOpts(title="新奥危险货物运输高风险路段聚类分析图"),
+                                    )
+
     bd_map = bd_map.render(path)
+
+    # 用浏览器打开文件
     webbrowser.open(path)
     return bd_map
 
 
 # -------------------------------------------------------------------------
-def main():
+if __name__ == "__main__":
     # 读取配置文件，获得数据文件路径
     DATA_PATH, MAP_SAVE_PATH, DATA_SAVE_PATH = get_config()
 
@@ -347,12 +364,11 @@ def main():
     map_plot = plot_map(point_data=abnormal_data,
                         path=file_dir)
 
-    webbrowser.open(file_dir)
+    # 将融合了逐桩坐标的试验数据储存在硬盘上
+    if not os.path.exists(DATA_SAVE_PATH):
+        os.mkdir(DATA_SAVE_PATH)
+    dbscan_data_path = os.path.join(DATA_SAVE_PATH, "dbscan_result.csv")
+    print("dbscan聚类分析数据保存在临时文件内，临时文件的保存路径为：", dbscan_data_path)
+    abnormal_data.to_csv(dbscan_data_path, index=False, sep=',', encoding='utf_8_sig')
 
 
-# -------------------------------------------------------------------------
-
-if __name__ == "__main__":
-    main()
-
-###############
