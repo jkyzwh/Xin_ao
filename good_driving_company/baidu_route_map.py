@@ -2,8 +2,8 @@
 
 """
 Created on Tue 2020/10/12
-本程序用于新奥公司提供的数据集的测试，对异常行为点的聚类，可视化展示
-利用百度地图进行聚类结果的可视化
+本程序用于新奥公司提供的数据集的测试
+对路线进行不同风险不同颜色的绘制
 
 @author: Zhwh-notbook
 """
@@ -371,15 +371,4 @@ if __name__ == "__main__":
     print("dbscan聚类分析数据保存在临时文件内，临时文件的保存路径为：", dbscan_data_path)
     abnormal_data.to_csv(dbscan_data_path, index=False, sep=',', encoding='utf_8_sig')
 
-    # 将聚类分析结果与全部数据聚合保存
-    abnormal_data_merge = abnormal_data['truck_license', 'long_GPS', 'lat_GPS', 'long_BaiDu', 'lat_BaiDu',
-                                        'speed', 'direction', 'time', 'behavior', 'label'].copy()
 
-    merge_col = ['truck_license', 'long_GPS', 'lat_GPS', 'long_BaiDu', 'lat_BaiDu',
-                 'speed', 'direction', 'time', 'acc', 'driving_time', 'turn_speed',
-                 'distance', 'distance_gps', 'behavior']
-
-    data_mix = pd.merge(all_data, abnormal_data,
-                        left_on=merge_col,
-                        right_on=merge_col,
-                        how='inner')
