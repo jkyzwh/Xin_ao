@@ -372,14 +372,18 @@ if __name__ == "__main__":
     abnormal_data.to_csv(dbscan_data_path, index=False, sep=',', encoding='utf_8_sig')
 
     # 将聚类分析结果与全部数据聚合保存
-    abnormal_data_merge = abnormal_data['truck_license', 'long_GPS', 'lat_GPS', 'long_BaiDu', 'lat_BaiDu',
-                                        'speed', 'direction', 'time', 'behavior', 'label'].copy()
 
     merge_col = ['truck_license', 'long_GPS', 'lat_GPS', 'long_BaiDu', 'lat_BaiDu',
-                 'speed', 'direction', 'time', 'acc', 'driving_time', 'turn_speed',
-                 'distance', 'distance_gps', 'behavior']
+                 'speed', 'direction', 'time', 'behavior']
 
-    data_mix = pd.merge(all_data, abnormal_data,
+    abnormal_data_merge = abnormal_data[['truck_license', 'long_GPS', 'lat_GPS', 'long_BaiDu', 'lat_BaiDu',
+                                         'speed', 'direction', 'time', 'behavior', 'label']].copy()
+
+    data_mix = pd.merge(all_data, abnormal_data_merge,
                         left_on=merge_col,
                         right_on=merge_col,
-                        how='inner')
+                        how='left')
+
+    data_merge_path = os.path.join(DATA_SAVE_PATH, "data_dbscan_result.csv")
+    print("聚合聚类分析数据保存在临时文件内，临时文件的保存路径为：", data_merge_path)
+    data_mix.to_csv(data_merge_path, index=False, sep=',', encoding='utf_8_sig')
