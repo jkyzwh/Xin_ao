@@ -265,6 +265,9 @@ def get_data(file_path):
                                 # engine='openpyxl'
                                 )
 
+    # 将行程数据按照时间序列排序
+    temp_import = temp_import.sort_values(by='time')
+
     return temp_import
 
 
