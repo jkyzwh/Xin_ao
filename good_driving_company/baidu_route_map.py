@@ -16,7 +16,7 @@ import requests
 import datetime
 import random
 
-import scipy.spatial.distance
+import math
 from sklearn.cluster import DBSCAN
 from sklearn import metrics
 
@@ -37,7 +37,67 @@ EARTH_REDIUS = 6378.137  # 地球半径
 requests.DEFAULT_RETRIES = 5
 
 
-# ---------------------------------------------------------------------------------------
+# ---------------------------------------操作GPS信息-------------------------------------------
+class Gps(object):
+    """
+    高德地图sdk，编写时间2020-08-20
+    """
+
+    def __init__(self, earth_radius):
+        self.earth_radius = earth_radius
+
+    def rad(self, d):
+        return d * math.pi / 180.0
+
+    def getDistance(self, lat1, lng1, lat2, lng2):
+        radLat1 = self.rad(lat1)
+        radLat2 = self.rad(lat2)
+        a = self.rad(lat1) - self.rad(lat2)
+        b = self.rad(lng1) - self.rad(lng2)
+        s = 2 * math.asin(math.sqrt(
+            math.pow(math.sin(a / 2), 2) + math.cos(radLat1) * math.cos(radLat2) * math.pow(math.sin(b / 2), 2)))
+        s = s * self.earth_radius * 1000
+        return s
+
+    def haversine(self, lon1, lat1, lon2, lat2):  # 经度1，纬度1，经度2，纬度2 （十进制度数）
+        """
+        Calculate the great circle distance between two points
+        on the earth (specified in decimal degrees)
+        """
+        # 将十进制度数转化为弧度
+        lon1, lat1, lon2, lat2 = map(math.radians, [lon1, lat1, lon2, lat2])
+
+        # haversine公式
+        dlon = lon2 - lon1
+        dlat = lat2 - lat1
+        a = math.sin(dlat / 2) ** 2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+        c = 2 * math.asin(math.sqrt(a))
+
+        return c * self.earth_radius * 1000
+
+
+# 调用Gps类，计算相邻GPS坐标之间的直线距离
+def gps_distance(earth_r, data):
+    gps = Gps(earth_radius=earth_r)
+    data['distance_gps'] = 0.0
+    for i in range(len(data)):
+        if i == 0:
+            data['distance'].values[i] = 0.0
+        else:
+            lat1 = data['lat_GPS'].iloc[i - 1]
+            lng1 = data['long_GPS'].iloc[i - 1]
+            lat2 = data['lat_GPS'].iloc[i]
+            lng2 = data['long_GPS'].iloc[i]
+            data['distance_gps'].values[i] = gps.getDistance(lat1=lat1,
+                                                             lng1=lng1,
+                                                             lat2=lat2,
+                                                             lng2=lng2
+                                                             )
+
+    return data
+
+
+# ---------------------------------------------------------------------------------------------
 
 
 # 读取程序需要的数据源等配置信息
@@ -211,7 +271,7 @@ def route_to_baidu_line(data, color='green'):
     return baidu_line_data
 
 
-# 将轨迹数据转化为百度地图lines格式数据
+# 将轨迹数据转化为百度地图lines格式数据——使用时间作为切割依据
 def route_data_cut(route_data, color='green'):
     route_data = route_data[route_data['speed'] > 0]
     # 将数据按驾驶人信息分隔，按时间序列排序
@@ -259,22 +319,77 @@ def route_data_cut(route_data, color='green'):
     return trip_baidu_list
 
 
+# 将轨迹数据转化为百度地图lines格式数据——使用距离作为切割依据
+def route_cut(data, color='green'):
+    # 剔除车辆静止时的数据
+    route_data = data[data['distance'] > 0].copy()
+
+    # 剔除重复的数据文件路径
+    truck_list = route_data.drop_duplicates(['truck_license'])['truck_license'].copy()
+    # 将数据根据时间间隔大于10分钟的规则进行分割，保存进list
+
+    # 将每一段行程数据保存进一个列表
+    trip_list = []
+
+    for truck in truck_list:
+        print(truck)
+        truck_temp = route_data[route_data['truck_license'] == truck]
+
+        # 将行程数据按照时间序列排序
+        truck_temp = truck_temp.sort_values(by='time')
+
+        # 通过相邻GPS坐标计算的行程距离
+        truck_temp = gps_distance(earth_r=EARTH_REDIUS,
+                                  data=truck_temp)
+
+        # 重新计算提出零速度后的相邻数据行之间的时间间隔
+        truck_temp = driving_time(truck_temp)
+
+        a = truck_temp.sort_values(by='distance_gps').copy()
+
+        # 获取行程间隔数据的索引列表
+        time_cut_index = truck_temp[truck_temp['driving_time'] > 600].index
+        index_bp = truck_temp.index[0]
+        index_ep = truck_temp.index[len(truck_temp) - 1]
+
+        for i in range(len(time_cut_index)):
+            if i == 0:
+                trip_temp_data = truck_temp.loc[index_bp: time_cut_index[i]]
+                trip_temp_data = trip_temp_data.drop(index=[time_cut_index[i]])
+            else:
+                trip_temp_data = truck_temp.loc[time_cut_index[i - 1]: time_cut_index[i]]
+                trip_temp_data = trip_temp_data.drop(index=[time_cut_index[i]])
+            trip_list.append(trip_temp_data)
+
+        trip_temp_data = truck_temp.loc[time_cut_index[i]: index_ep]
+        trip_temp_data = trip_temp_data.drop(index=[index_ep])
+        trip_list.append(trip_temp_data)
+
+    #  遍历行程列表，生成百度地图支持的数据文件列表
+    trip_baidu_list = []
+    for trip in trip_list:
+        route_to_baidu_line(trip, color=color)
+        trip_baidu_list.append(route_to_baidu_line(trip, color=color))
+
+    return trip_baidu_list
+
+
 # -------------------------------------------------------------------------
 if __name__ == "__main__":
     # 读取配置文件，获得数据文件路径
     DATA_PATH, MAP_SAVE_PATH, DATA_SAVE_PATH = get_config()
 
-    route_data_path = os.path.join(DATA_SAVE_PATH, "data_dbscan_result.csv")
+    data_path = os.path.join(DATA_SAVE_PATH, "data_dbscan_result.csv")
 
-    route_data = pd.read_csv(route_data_path,
-                             header=0,
-                             index_col=False,
-                             # names=col_names,
-                             low_memory=False
-                             )
+    all_data = pd.read_csv(data_path,
+                           header=0,
+                           index_col=False,
+                           # names=col_names,
+                           low_memory=False
+                           )
 
     # 将nan数据替换为-1
-    route_data.fillna(value=-1, inplace=True)
+    all_data.fillna(value=-1, inplace=True)
 
     # 绘制异常点和正常点位分布散点图
     scatter_file_name = 'route_map_scatter.html'
@@ -284,12 +399,12 @@ if __name__ == "__main__":
     scatter_file_dir = os.path.join(MAP_SAVE_PATH, scatter_file_name)
     lines_file_dir = os.path.join(MAP_SAVE_PATH, lines_file_name)
 
-    map_plot = plot_scatter_map(route_data=route_data,
-                                path=scatter_file_dir)
+    # map_plot = plot_scatter_map(route_data=route_data,
+    #                             path=scatter_file_dir)
 
     # 绘制异常点和正常点分布路线图，首先将数据分为异常路段和正常路段
-    normal_route = route_data[route_data['label'] <= -0.0].copy()
-    risk_route = route_data[route_data['label'] > 0.0].copy()
+    normal_route = all_data[all_data['label'] <= -0.0].copy()
+    risk_route = all_data[all_data['label'] > 0.0].copy()
 
     # 将行驶轨迹数据转化为百度地图支持的lines数据
     normal_map_data = route_data_cut(route_data=normal_route,
@@ -310,94 +425,94 @@ if __name__ == "__main__":
             zoom=10,
             is_roam=True,
             map_style={
-            "styleJson": [
-                {
-                    "featureType": "water",
-                    "elementType": "all",
-                    "stylers": {"color": "#031628"},
-                },
-                {
-                    "featureType": "land",
-                    "elementType": "geometry",
-                    "stylers": {"color": "#000102"},
-                },
-                {
-                    "featureType": "highway",
-                    "elementType": "all",
-                    "stylers": {"visibility": "off"},
-                },
-                {
-                    "featureType": "arterial",
-                    "elementType": "geometry.fill",
-                    "stylers": {"color": "#000000"},
-                },
-                {
-                    "featureType": "arterial",
-                    "elementType": "geometry.stroke",
-                    "stylers": {"color": "#0b3d51"},
-                },
-                {
-                    "featureType": "local",
-                    "elementType": "geometry",
-                    "stylers": {"color": "#000000"},
-                },
-                {
-                    "featureType": "railway",
-                    "elementType": "geometry.fill",
-                    "stylers": {"color": "#000000"},
-                },
-                {
-                    "featureType": "railway",
-                    "elementType": "geometry.stroke",
-                    "stylers": {"color": "#08304b"},
-                },
-                {
-                    "featureType": "subway",
-                    "elementType": "geometry",
-                    "stylers": {"lightness": -70},
-                },
-                {
-                    "featureType": "building",
-                    "elementType": "geometry.fill",
-                    "stylers": {"color": "#000000"},
-                },
-                {
-                    "featureType": "all",
-                    "elementType": "labels.text.fill",
-                    "stylers": {"color": "#857f7f"},
-                },
-                {
-                    "featureType": "all",
-                    "elementType": "labels.text.stroke",
-                    "stylers": {"color": "#000000"},
-                },
-                {
-                    "featureType": "building",
-                    "elementType": "geometry",
-                    "stylers": {"color": "#022338"},
-                },
-                {
-                    "featureType": "green",
-                    "elementType": "geometry",
-                    "stylers": {"color": "#062032"},
-                },
-                {
-                    "featureType": "boundary",
-                    "elementType": "all",
-                    "stylers": {"color": "#465b6c"},
-                },
-                {
-                    "featureType": "manmade",
-                    "elementType": "all",
-                    "stylers": {"color": "#022338"},
-                },
-                {
-                    "featureType": "label",
-                    "elementType": "all",
-                    "stylers": {"visibility": "off"},
-                },
-            ]
-        },
+                "styleJson": [
+                    {
+                        "featureType": "water",
+                        "elementType": "all",
+                        "stylers": {"color": "#031628"},
+                    },
+                    {
+                        "featureType": "land",
+                        "elementType": "geometry",
+                        "stylers": {"color": "#000102"},
+                    },
+                    {
+                        "featureType": "highway",
+                        "elementType": "all",
+                        "stylers": {"visibility": "off"},
+                    },
+                    {
+                        "featureType": "arterial",
+                        "elementType": "geometry.fill",
+                        "stylers": {"color": "#000000"},
+                    },
+                    {
+                        "featureType": "arterial",
+                        "elementType": "geometry.stroke",
+                        "stylers": {"color": "#0b3d51"},
+                    },
+                    {
+                        "featureType": "local",
+                        "elementType": "geometry",
+                        "stylers": {"color": "#000000"},
+                    },
+                    {
+                        "featureType": "railway",
+                        "elementType": "geometry.fill",
+                        "stylers": {"color": "#000000"},
+                    },
+                    {
+                        "featureType": "railway",
+                        "elementType": "geometry.stroke",
+                        "stylers": {"color": "#08304b"},
+                    },
+                    {
+                        "featureType": "subway",
+                        "elementType": "geometry",
+                        "stylers": {"lightness": -70},
+                    },
+                    {
+                        "featureType": "building",
+                        "elementType": "geometry.fill",
+                        "stylers": {"color": "#000000"},
+                    },
+                    {
+                        "featureType": "all",
+                        "elementType": "labels.text.fill",
+                        "stylers": {"color": "#857f7f"},
+                    },
+                    {
+                        "featureType": "all",
+                        "elementType": "labels.text.stroke",
+                        "stylers": {"color": "#000000"},
+                    },
+                    {
+                        "featureType": "building",
+                        "elementType": "geometry",
+                        "stylers": {"color": "#022338"},
+                    },
+                    {
+                        "featureType": "green",
+                        "elementType": "geometry",
+                        "stylers": {"color": "#062032"},
+                    },
+                    {
+                        "featureType": "boundary",
+                        "elementType": "all",
+                        "stylers": {"color": "#465b6c"},
+                    },
+                    {
+                        "featureType": "manmade",
+                        "elementType": "all",
+                        "stylers": {"color": "#022338"},
+                    },
+                    {
+                        "featureType": "label",
+                        "elementType": "all",
+                        "stylers": {"visibility": "off"},
+                    },
+                ]
+            },
         )
             .add(
             "低风险路段",
