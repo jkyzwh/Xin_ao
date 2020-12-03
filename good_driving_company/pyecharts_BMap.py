@@ -14,6 +14,8 @@ from pyecharts.charts import BMap
 from pyecharts import options as opts
 from pyecharts.faker import Faker
 
+import webbrowser
+
 # [list(z) for z in zip(Faker.provinces, Faker.values())]
 # zip(Faker.guangdong_city, Faker.values())
 
@@ -161,3 +163,5 @@ c = (
     )
     .render("bmap_beijing_bus_routines.html")
 )
+
+webbrowser.open("bmap_beijing_bus_routines.html")
