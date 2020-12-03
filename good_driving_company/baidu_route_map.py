@@ -321,11 +321,9 @@ def route_data_cut(route_data, color='green'):
 
 # 将轨迹数据转化为百度地图lines格式数据——使用距离作为切割依据
 def route_cut(data, color='green'):
-    # 剔除车辆静止时的数据
-    route_data = data[data['distance'] > 0].copy()
 
     # 剔除重复的数据文件路径
-    truck_list = route_data.drop_duplicates(['truck_license'])['truck_license'].copy()
+    truck_list = data.drop_duplicates(['truck_license'])['truck_license'].to_list()
     # 将数据根据时间间隔大于10分钟的规则进行分割，保存进list
 
     # 将每一段行程数据保存进一个列表
@@ -333,7 +331,10 @@ def route_cut(data, color='green'):
 
     for truck in truck_list:
         print(truck)
-        truck_temp = route_data[route_data['truck_license'] == truck]
+        truck_temp = data[data['truck_license'] == truck].copy()
+
+        # 剔除车辆静止时的数据
+        truck_temp = truck_temp[truck_temp['distance'] > 0].copy()
 
         # 将行程数据按照时间序列排序
         truck_temp = truck_temp.sort_values(by='time')
@@ -342,13 +343,18 @@ def route_cut(data, color='green'):
         truck_temp = gps_distance(earth_r=EARTH_REDIUS,
                                   data=truck_temp)
 
+        # 以间距大于100米采样
+        truck_temp = truck_temp[truck_temp['distance_gps'] > 100].copy()
+        truck_temp = gps_distance(earth_r=EARTH_REDIUS,
+                                  data=truck_temp)
+
         # 重新计算提出零速度后的相邻数据行之间的时间间隔
         truck_temp = driving_time(truck_temp)
 
-        a = truck_temp.sort_values(by='distance_gps').copy()
+        # a = truck_temp.sort_values(by='distance_gps').copy()
 
         # 获取行程间隔数据的索引列表
-        time_cut_index = truck_temp[truck_temp['driving_time'] > 600].index
+        time_cut_index = truck_temp[truck_temp['distance_gps'] > 3000].index
         index_bp = truck_temp.index[0]
         index_ep = truck_temp.index[len(truck_temp) - 1]
 
